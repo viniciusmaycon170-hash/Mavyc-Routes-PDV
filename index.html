@@ -23,7 +23,7 @@
             --borda: #e2e8f0; --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
         }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
-        body { background-color: var(--bg-fundo); color: var(--texto-principal); padding-top: 170px; padding-bottom: 90px; }
+        body { background-color: var(--bg-fundo); color: var(--texto-principal); padding-top: 170px; padding-bottom: 90px; overflow-x: hidden; }
         .header { position: fixed; top: 0; left: 0; width: 100%; background: var(--bg-card); z-index: 10; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         .header-content { padding: 20px 20px 10px 20px; }
         .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
@@ -34,7 +34,7 @@
         .progress-info { display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; color: var(--texto-secundario); margin-bottom: 8px; }
         .progress-track { width: 100%; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; margin-bottom: 15px; }
         .progress-bar { height: 100%; background: var(--sucesso); width: 0%; transition: 0.4s ease; }
-        .action-bar { display: flex; gap: 10px; padding: 0 20px 15px 20px; border-bottom: 1px solid var(--borda); background: white; overflow-x: auto; scrollbar-width: none; }
+        .action-bar { display: flex; gap: 8px; padding: 0 10px 10px 10px; border-bottom: 1px solid var(--borda); background: white; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; flex-wrap: wrap; }
         .action-bar::-webkit-scrollbar { display: none; }
         .btn-acao { background: #f1f5f9; color: var(--texto-principal); border: 1px solid var(--borda); font-weight: 700; padding: 10px 15px; border-radius: 8px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; transition: 0.2s;}
         .btn-acao:active { transform: scale(0.95); }
@@ -117,41 +117,53 @@ body { padding-top: 220px; }
 #view-pdv { display: none; padding-top: 0; }
 #view-pdv h1, #view-pdv .sub, #view-pdv .sync-badge { margin-left: 15px; }
 
-/* ===== Responsividade Mobile ===== */
+
+
+/* ===== Responsividade Mobile Corrigida ===== */
+@media (max-width: 1024px) {
+  * { box-sizing: border-box; }
+  body { overflow-x: hidden; }
+}
+
 @media (max-width: 768px) {
-  body { padding-top: 180px; padding-bottom: 100px; }
-  .tab-bar { flex-wrap: wrap; }
-  .tab-btn { padding: 12px; font-size: 12px; }
-  .header-title { font-size: 18px; }
-  .action-bar { gap: 8px; padding: 0 10px 10px 10px; }
-  .btn-acao { padding: 8px 12px; font-size: 12px; }
-  .container { padding: 0 10px; gap: 12px; }
-  .card { padding: 14px; }
+  body { padding-top: 160px; padding-bottom: 100px; overflow-x: hidden; }
+  .tab-bar { flex-wrap: nowrap; overflow-x: auto; }
+  .tab-btn { padding: 12px 10px; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
+  .header-title { font-size: 16px; }
+  .action-bar { gap: 6px; padding: 0 8px 8px 8px; flex-wrap: wrap; }
+  .btn-acao { padding: 8px 10px; font-size: 11px; flex-shrink: 0; }
+  .container { padding: 0 8px; gap: 10px; }
+  .card { padding: 12px; }
   .actions-row { grid-template-columns: 1fr 1fr; gap: 6px; }
-  .btn-card { padding: 10px 3px; font-size: 11px; }
   .cards-grid { grid-template-columns: 1fr; }
   .push-lateral { max-width: 100%; }
-  .form-control { padding: 12px; font-size: 16px; }
 }
 
 @media (max-width: 480px) {
-  body { padding-top: 200px; padding-bottom: 120px; }
-  .header-content { padding: 15px 15px 8px 15px; }
-  .progress-info { font-size: 12px; }
-  .action-bar { gap: 6px; padding: 0 8px 8px 8px; overflow-x: auto; }
-  .btn-acao { padding: 8px 10px; font-size: 11px; gap: 4px; }
-  .container { padding: 0 8px; gap: 10px; }
-  .card { padding: 12px; border-radius: 10px; }
-  .card-header { padding-right: 25px; }
-  .cliente-nome { font-size: 15px; }
-  .endereco { font-size: 12px; }
-  .actions-row { grid-template-columns: 1fr; gap: 6px; }
-  .btn-card { padding: 8px 2px; font-size: 10px; }
-  .fab { width: 55px; height: 55px; font-size: 24px; bottom: 20px; right: 20px; }
-  .tab-bar { position: fixed; top: 0; }
-  .tab-btn { padding: 10px; font-size: 11px; }
-  table { font-size: 11px; }
-  th, td { padding: 8px 4px; }
+  * { box-sizing: border-box; }
+  html, body { width: 100%; overflow-x: hidden; }
+  body { padding-top: 170px; padding-bottom: 120px; margin: 0; }
+  .tab-bar { width: 100vw; margin-left: calc(-50vw + 50%); }
+  .tab-btn { padding: 10px 8px; font-size: 11px; white-space: nowrap; flex: 1; }
+  .header { width: 100vw; margin-left: calc(-50vw + 50%); }
+  .header-content { padding: 12px 10px 8px 10px; }
+  .header-title { font-size: 15px; }
+  .progress-info { font-size: 11px; }
+  .action-bar { width: 100%; padding: 0 8px 8px 8px; gap: 5px; flex-wrap: wrap; overflow-x: visible; }
+  .btn-acao { padding: 7px 8px; font-size: 10px; flex: 0 1 auto; white-space: nowrap; }
+  .container { padding: 0 8px; gap: 8px; width: 100%; }
+  .card { padding: 10px; border-radius: 10px; }
+  .card-header { padding-right: 20px; }
+  .cliente-nome { font-size: 14px; }
+  .endereco { font-size: 11px; margin-bottom: 8px; }
+  .obs { font-size: 11px; padding: 6px; margin-bottom: 10px; }
+  .actions-row { grid-template-columns: 1fr; gap: 5px; }
+  .btn-card { padding: 8px 2px; font-size: 9px; }
+  .fab { width: 50px; height: 50px; font-size: 22px; bottom: 15px; right: 15px; }
+  .push-lateral { width: 100vw; max-width: 100vw; }
+  table { font-size: 10px; }
+  th, td { padding: 6px 3px; }
+  .form-control { padding: 12px; font-size: 16px; }
 }
 </style>
 </head>
