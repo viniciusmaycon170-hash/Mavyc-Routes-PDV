@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Mavyc Operacional - Routes + PDV Master</title>
+
+<!-- Bibliotecas (carregadas uma única vez) -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Biblioteca: gráficos comparativos -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<!-- Biblioteca: leitor de código de barras/QR pela câmera -->
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+<style>
+/* ===== Estilos do Routes ===== */
+
+        :root {
+            --bg-fundo: #f8fafc; --bg-card: #ffffff; --primaria: #2563eb;
+            --sucesso: #10b981; --falha: #ef4444; --alerta: #f59e0b;
+            --texto-principal: #1e293b; --texto-secundario: #64748b;
+            --borda: #e2e8f0; --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background-color: var(--bg-fundo); color: var(--texto-principal); padding-top: 170px; padding-bottom: 90px; }
+        .header { position: fixed; top: 0; left: 0; width: 100%; background: var(--bg-card); z-index: 10; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .header-content { padding: 20px 20px 10px 20px; }
+        .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .header-title { font-size: 20px; font-weight: 900; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; }
+        .sync-badge { font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 6px; }
+        .sync-badge.ok { background: #d1fae5; color: #065f46; }
+        .sync-badge.off { background: #fee2e2; color: #991b1b; }
+        .progress-info { display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; color: var(--texto-secundario); margin-bottom: 8px; }
+        .progress-track { width: 100%; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; margin-bottom: 15px; }
+        .progress-bar { height: 100%; background: var(--sucesso); width: 0%; transition: 0.4s ease; }
+        .action-bar { display: flex; gap: 10px; padding: 0 20px 15px 20px; border-bottom: 1px solid var(--borda); background: white; overflow-x: auto; scrollbar-width: none; }
+        .action-bar::-webkit-scrollbar { display: none; }
+        .btn-acao { background: #f1f5f9; color: var(--texto-principal); border: 1px solid var(--borda); font-weight: 700; padding: 10px 15px; border-radius: 8px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; transition: 0.2s;}
+        .btn-acao:active { transform: scale(0.95); }
+        .btn-acao.destaque { background: var(--primaria); color: white; border-color: var(--primaria); }
+        .btn-acao.maps { background: #16a34a; color: white; border-color: #16a34a; }
+        .container { padding: 0 15px; display: flex; flex-direction: column; gap: 15px; }
+        .card { background: var(--bg-card); border-radius: 12px; padding: 18px; box-shadow: var(--shadow-card); border: 1px solid var(--borda); position: relative; }
+        .card.status-entregue { opacity: 0.6; border-left: 5px solid var(--sucesso); }
+        .card.status-falhou { opacity: 0.8; border-left: 5px solid var(--falha); }
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; padding-right: 30px; }
+        .cliente-nome { font-size: 17px; font-weight: 800; }
+        .tipo-chip { display: inline-block; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 5px; background: #eef2ff; color: var(--primaria); margin-left: 6px; vertical-align: middle; }
+        .btn-excluir { position: absolute; top: 15px; right: 15px; background: #fee2e2; color: var(--falha); border: none; width: 32px; height: 32px; border-radius: 6px; font-size: 16px; display: flex; justify-content: center; align-items: center; cursor: pointer; }
+        .endereco { font-size: 13px; color: var(--texto-secundario); margin-bottom: 12px; font-weight: 600; }
+        .obs { font-size: 12px; color: #854d0e; background: #fefce8; padding: 8px; border-radius: 6px; margin-bottom: 15px; font-weight: bold; border: 1px solid #fef08a;}
+        .actions-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+        .btn-card { padding: 12px 5px; border-radius: 8px; font-size: 12px; font-weight: 800; border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .btn-nav { background: var(--primaria); color: white; }
+        .btn-success { background: var(--sucesso); color: white; }
+        .btn-danger { background: #fee2e2; color: var(--falha); }
+        .status-badge { text-align: center; padding: 10px; font-weight: 800; border-radius: 8px; display: none; margin-top: 10px; font-size: 14px;}
+        .card.status-entregue .status-badge { display: block; background: #d1fae5; color: #065f46; }
+        .card.status-falhou .status-badge { display: block; background: #fee2e2; color: #991b1b; }
+        .card.status-entregue .actions-row, .card.status-falhou .actions-row { display: none; }
+        .fab { position: fixed; bottom: 25px; right: 25px; width: 60px; height: 60px; border-radius: 50%; background: var(--primaria); color: white; font-size: 28px; font-weight: bold; border: none; box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.4); cursor: pointer; z-index: 90; }
+        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 95; }
+        .overlay.active { display: block; }
+        .push-lateral { position: fixed; top: 0; right: -100%; width: 100%; max-width: 400px; height: 100vh; background: var(--bg-card); z-index: 100; transition: 0.3s; display: flex; flex-direction: column; }
+        .push-lateral.active { right: 0; }
+        .push-header { padding: 20px; border-bottom: 1px solid var(--borda); display: flex; justify-content: space-between; align-items: center; background: #f8fafc; }
+        .push-body { padding: 20px; overflow-y: auto; flex-grow: 1; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 5px; }
+        .form-control { width: 100%; padding: 14px; border: 1px solid var(--borda); border-radius: 8px; font-size: 14px; outline: none; }
+        .empty-state { text-align: center; padding: 50px 20px; color: var(--texto-secundario); font-weight: bold; }
+        #loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.9); z-index: 9999; flex-direction: column; justify-content: center; align-items: center; color: white; }
+        #loading-overlay.active { display: flex; }
+        .spinner { border: 4px solid rgba(255,255,255,0.3); border-top: 4px solid var(--sucesso); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    
+
+/* ===== Estilos do PDV Master ===== */
+
+  :root { --primaria:#2563eb; --sucesso:#10b981; --falha:#ef4444; --alerta:#f59e0b; --texto:#1e293b; --sec:#64748b; --borda:#e2e8f0; }
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',system-ui,sans-serif; }
+  body { background:#f8fafc; color:var(--texto); padding:20px 15px 60px; }
+  h1 { font-size:19px; font-weight:900; margin-bottom:4px; }
+  .sub { font-size:12px; color:var(--sec); margin-bottom:15px; }
+  .sync-badge { font-size:11px; font-weight:700; padding:4px 8px; border-radius:6px; display:inline-block; margin-bottom:15px; }
+  .sync-badge.ok { background:#d1fae5; color:#065f46; }
+  .sync-badge.off { background:#fee2e2; color:#991b1b; }
+  select, input, button { font-family:inherit; }
+  .filtros { display:flex; gap:10px; margin-bottom:15px; flex-wrap:wrap; }
+  .filtros select { flex:1; min-width:150px; padding:10px; border:1px solid var(--borda); border-radius:8px; font-size:13px; }
+  .cards-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px; }
+  .card-metric { background:#fff; border:1px solid var(--borda); border-radius:12px; padding:14px; }
+  .card-metric .label { font-size:11px; color:var(--sec); font-weight:700; margin-bottom:6px; }
+  .card-metric .valor { font-size:20px; font-weight:900; }
+  .card-metric .meta { font-size:11px; color:var(--sec); margin-top:4px; }
+  .ritmo { background:#fff; border:1px solid var(--borda); border-radius:12px; padding:14px; margin-bottom:15px; }
+  .ritmo-bar-track { width:100%; height:10px; background:#e2e8f0; border-radius:5px; overflow:hidden; margin-top:8px; }
+  .ritmo-bar { height:100%; transition:0.4s; }
+  .ritmo-texto { font-size:12px; font-weight:700; margin-top:6px; }
+  .painel-cartao { background:#fff; border:1px solid var(--borda); border-radius:12px; padding:14px; margin-bottom:15px; }
+  .painel-cartao h3 { font-size:14px; margin-bottom:10px; }
+  .row-inline { display:flex; gap:8px; }
+  .row-inline input { flex:1; padding:12px; border:1px solid var(--borda); border-radius:8px; font-size:14px; }
+  .row-inline button { padding:12px 18px; background:var(--primaria); color:#fff; border:none; border-radius:8px; font-weight:800; }
+  table { width:100%; border-collapse:collapse; background:#fff; border-radius:12px; overflow:hidden; font-size:12px; }
+  th, td { padding:10px 8px; text-align:left; border-bottom:1px solid var(--borda); }
+  th { background:#f1f5f9; font-weight:800; color:var(--sec); }
+  .btn-export { width:100%; padding:12px; background:#1e293b; color:#fff; border:none; border-radius:8px; font-weight:800; margin-bottom:15px; }
+
+
+/* ===== Tabs de navegação entre os dois apps ===== */
+.tab-bar { position: fixed; top: 0; left: 0; width: 100%; z-index: 200; display: flex; background: #1e293b; }
+.tab-btn { flex: 1; padding: 14px; text-align: center; color: #94a3b8; font-weight: 800; font-size: 13px; background: transparent; border: none; cursor: pointer; }
+.tab-btn.active { color: #fff; background: #2563eb; }
+body { padding-top: 220px; }
+#view-pdv { display: none; padding-top: 0; }
+#view-pdv h1, #view-pdv .sub, #view-pdv .sync-badge { margin-left: 15px; }
+</style>
+</head>
+<body>
+
+<div class="tab-bar">
+  <button class="tab-btn active" id="tab-routes" onclick="mostrarView('routes')">🧭 Rotas</button>
+  <button class="tab-btn" id="tab-pdv" onclick="mostrarView('pdv')">📊 PDV Master</button>
+</div>
+
+<div id="view-routes">
+
+
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <h3 id="loading-text" style="font-weight: 800;">Calculando distâncias...</h3>
+        <p style="font-size: 12px; margin-top: 5px; color: #94a3b8;">Aguarde, isso pode levar alguns segundos.</p>
+    </div>
+
+    <header class="header">
+        <div class="header-content">
+            <div class="header-top">
+                <div class="header-title">📦 Mavyc Routes</div>
+                <span class="sync-badge off" id="sync-status">🔴 offline</span>
+            </div>
+            <div class="progress-info">
+                <span id="progresso-texto">0/0 Entregas</span>
+                <span id="progresso-porcentagem">0%</span>
+            </div>
+            <div class="progress-track"><div class="progress-bar" id="progresso-barra"></div></div>
+        </div>
+
+        <div class="action-bar">
+            <button class="btn-acao destaque" onclick="routesApp.aplicarRota()">⚡ Aplicar Rota</button>
+            <button class="btn-acao maps" onclick="routesApp.iniciarRotaGoogleMaps()">🧭 Iniciar Rota (Maps)</button>
+            <button class="btn-acao" style="background:#7c3aed; color:#fff; border-color:#7c3aed;" onclick="abrirScanner()">📷 Ler Código</button>
+            <input type="file" id="import-excel" accept=".xlsx, .xls, .csv, .txt, text/*" style="display: none;" onchange="routesApp.importarPlanilha(event)">
+            <button class="btn-acao" onclick="document.getElementById('import-excel').click()">📥 Importar Lista</button>
+            <button class="btn-acao" style="color: var(--falha);" onclick="routesApp.limparTudo()">🗑️ Limpar Tudo</button>
+        </div>
+    </header>
+
+    <main class="container" id="lista-entregas"></main>
+
+    <button class="fab" onclick="routesApp.abrirPainel()">+</button>
+
+    <div class="overlay" id="overlay" onclick="routesApp.fecharPainel()"></div>
+    <aside class="push-lateral" id="painel-adicionar">
+        <div class="push-header">
+            <h3>Nova Parada</h3>
+            <button style="background:transparent; border:none; font-size:20px;" onclick="routesApp.fecharPainel()">✕</button>
+        </div>
+        <div class="push-body">
+            <div class="form-group"><label>Cliente</label><input type="text" id="input-cliente" class="form-control"></div>
+            <div class="form-group"><label>Endereço Completo</label><input type="text" id="input-endereco" class="form-control" placeholder="Rua, Número, Bairro"></div>
+            <div class="form-group"><label>Nº Pedido (Opcional)</label><input type="text" id="input-pedido" class="form-control"></div>
+            <!-- NOVO: tipo customizável, não travado em Amazon/Total Express -->
+            <div class="form-group">
+                <label>Tipo de Entrega</label>
+                <input type="text" id="input-tipo" class="form-control" list="lista-tipos" placeholder="Amazon, Total Express, ou outra...">
+                <datalist id="lista-tipos">
+                    <option value="Amazon"></option>
+                    <option value="Total Express"></option>
+                </datalist>
+            </div>
+            <div class="form-group"><label>Preço Unitário (R$)</label><input type="number" step="0.01" id="input-preco" class="form-control" placeholder="0.00"></div>
+            <div class="form-group"><label>Observações</label><input type="text" id="input-obs" class="form-control"></div>
+            <button class="btn-acao destaque" style="width:100%; justify-content:center; padding:15px; margin-top:10px;" onclick="routesApp.salvarParadaManual()">Adicionar à Rota</button>
+        </div>
+    </aside>
+
+    <!-- Modal simples pra motivo da falha (NC) -->
+    <div class="overlay" id="overlay-falha" onclick="document.getElementById('overlay-falha').classList.remove('active'); document.getElementById('painel-falha').classList.remove('active');"></div>
+    <aside class="push-lateral" id="painel-falha">
+        <div class="push-header">
+            <h3>Motivo da Falha</h3>
+            <button style="background:transparent; border:none; font-size:20px;" onclick="document.getElementById('overlay-falha').classList.remove('active'); document.getElementById('painel-falha').classList.remove('active');">✕</button>
+        </div>
+        <div class="push-body">
+            <div class="form-group">
+                <label>Por que não entregou?</label>
+                <select id="input-motivo-falha" class="form-control">
+                    <option>Endereço não encontrado</option>
+                    <option>Cliente ausente</option>
+                    <option>Cliente recusou</option>
+                    <option>Área de risco</option>
+                    <option>Outro</option>
+                </select>
+            </div>
+            <button class="btn-acao destaque" style="width:100%; justify-content:center; padding:15px;" onclick="routesApp.confirmarFalha()">Confirmar</button>
+        </div>
+    </aside>
+
+    
+
+
+    <!-- Modal do leitor de código -->
+    <div class="overlay" id="overlay-scanner"></div>
+    <aside class="push-lateral" id="painel-scanner">
+        <div class="push-header">
+            <h3>📷 Ler Código do Pacote</h3>
+            <button style="background:transparent; border:none; font-size:20px;" onclick="fecharScanner()">✕</button>
+        </div>
+        <div class="push-body">
+            <p style="font-size:12px; color:var(--texto-secundario); margin-bottom:12px;">
+                Aponte a câmera para o código de barras ou QR code do pacote. Assim que reconhecer, abre a navegação direto pro endereço daquela entrega.
+            </p>
+            <div id="scanner-camera" style="width:100%; border-radius:10px; overflow:hidden;"></div>
+            <div id="scanner-status" style="margin-top:12px; font-size:13px; font-weight:700; text-align:center;"></div>
+            <div class="form-group" style="margin-top:15px;">
+                <label>Ou digite o código/pedido manualmente</label>
+                <div class="row-inline" style="display:flex; gap:8px;">
+                    <input type="text" id="input-codigo-manual" class="form-control" placeholder="Nº do pedido">
+                    <button class="btn-acao destaque" onclick="buscarPorCodigo(document.getElementById('input-codigo-manual').value)">Buscar</button>
+                </div>
+            </div>
+        </div>
+    </aside>
+</div>
+
+<div id="view-pdv">
+<h1>📊 PDV Master</h1>
+<div class="sub">Gestão Dinâmica de Quinzenas</div>
+<span class="sync-badge off" id="sync-status">🔴 offline</span>
+
+<div class="filtros">
+  <select id="filtro-quinzena" onchange="pdvApp.recarregar()">
+    <option value="todos">Visão Geral (Todos)</option>
+    <option value="q1">1ª Quinzena (Dia 21 ao 05 | Pago: 10)</option>
+    <option value="q2">2ª Quinzena (Dia 06 ao 20 | Pago: 25)</option>
+  </select>
+</div>
+
+<div class="painel-cartao">
+  <h3>📝 Lançar Registro Manual</h3>
+  <div class="form-group">
+    <label>Data de Operação</label>
+    <input type="date" id="input-data-operacao" class="form-control">
+  </div>
+  <div class="form-group">
+    <label>Tipo de Registro</label>
+    <select id="input-tipo-registro" class="form-control" onchange="pdvApp.alternarCamposFormulario()">
+      <option value="Amazon">Entrega Amazon</option>
+      <option value="Total Express">Entrega Total Express</option>
+      <option value="Cartao">Cartão de Crédito</option>
+    </select>
+  </div>
+  <div id="campos-entrega">
+    <div class="form-group"><label>Qtd Entregues (Sucesso)</label><input type="number" id="input-qtd-entregues" class="form-control" placeholder="0"></div>
+    <div class="form-group"><label>Qtd NCs (Insucesso)</label><input type="number" id="input-qtd-ncs" class="form-control" placeholder="0"></div>
+    <div class="form-group"><label>Preço Unitário (R$)</label><input type="number" step="0.01" id="input-preco-unitario" class="form-control" placeholder="0.00"></div>
+    <div class="form-group"><label>Meta da Quinzena</label><input type="number" id="input-meta-quinzena" class="form-control" placeholder="150"></div>
+  </div>
+  <div id="campos-cartao" style="display:none;">
+    <div class="form-group"><label>Valor (R$)</label><input type="number" step="0.01" id="input-valor-cartao" class="form-control" placeholder="0.00"></div>
+  </div>
+  <button class="btn-acao destaque" style="width:100%; justify-content:center; padding:14px;" onclick="pdvApp.salvarRegistroManual()">Salvar Registro</button>
+</div>
+
+<div class="cards-grid">
+  <div class="card-metric">
+    <div class="label">📦 Pacotes Amazon</div>
+    <div class="valor" id="qtd-amazon">0 / 150</div>
+  </div>
+  <div class="card-metric">
+    <div class="label">📦 Pacotes Total Express</div>
+    <div class="valor" id="qtd-total-express">0 / 150</div>
+  </div>
+  <div class="card-metric">
+    <div class="label">💰 Faturamento Entregas</div>
+    <div class="valor" id="faturamento-entregas">R$ 0,00</div>
+    <div class="meta" id="faturamento-por-pacote">R$ 0,00 / pacote</div>
+  </div>
+  <div class="card-metric">
+    <div class="label">💳 Movimento Cartões</div>
+    <div class="valor" id="movimento-cartao">R$ 0,00</div>
+  </div>
+</div>
+
+<div class="ritmo">
+  <div class="label" style="font-size:12px;font-weight:800;">⏱️ Ritmo da Quinzena</div>
+  <div class="ritmo-texto" id="ritmo-texto">Selecione uma quinzena pra ver o ritmo.</div>
+  <div class="ritmo-bar-track"><div class="ritmo-bar" id="ritmo-bar" style="width:0%; background:#2563eb;"></div></div>
+</div>
+
+<div class="card-metric" style="margin-bottom:15px;">
+  <div class="label">⚠️ Taxa de NC (insucesso)</div>
+  <div class="valor" id="taxa-nc">0%</div>
+  <div class="meta" id="nc-por-motivo">Sem dados de motivo ainda</div>
+</div>
+
+<div class="card-metric" style="margin-bottom:15px;">
+  <h3 style="font-size:13px; margin-bottom:10px;">📦 Comparativo por Quinzenas (Entregas e Cartões)</h3>
+  <canvas id="grafico-comparativo" height="180"></canvas>
+</div>
+
+<div class="card-metric" style="margin-bottom:15px;">
+  <h3 style="font-size:13px; margin-bottom:10px;">📈 Desempenho Logístico (Entregas vs NCs)</h3>
+  <canvas id="grafico-logistico" height="180"></canvas>
+</div>
+
+<button class="btn-export" onclick="pdvApp.exportarExcel()">⬇️ Exportar Relatório (.xlsx)</button>
+
+<h3 style="font-size:14px; margin-bottom:10px;">📋 Histórico Completo de Lançamentos</h3>
+<table>
+  <thead>
+    <tr><th>Data</th><th>Quinzena</th><th>Tipo</th><th>Entregas/Trans.</th><th>NCs</th><th>Preço Un.</th><th>Fechamento</th><th>Recebimento</th><th>Total (R$)</th><th>Ações</th></tr>
+  </thead>
+  <tbody id="tabela-historico"></tbody>
+</table>
+
+
+
+
+</div>
+
+<script>
+// =================================================================
+// CONFIGURAÇÃO SUPABASE (única, compartilhada pelos dois apps)
+// Painel Supabase > Project Settings > API
+// =================================================================
+const SUPABASE_URL = 'https://SEU-PROJETO.supabase.co';
+const SUPABASE_ANON_KEY = 'SUA-CHAVE-ANON-AQUI';
+const supabaseClient = (SUPABASE_URL.includes('SEU-PROJETO'))
+    ? null
+    : window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+function mostrarView(nome) {
+  document.getElementById('view-routes').style.display = (nome === 'routes') ? 'block' : 'none';
+  document.getElementById('view-pdv').style.display = (nome === 'pdv') ? 'block' : 'none';
+  document.getElementById('tab-routes').classList.toggle('active', nome === 'routes');
+  document.getElementById('tab-pdv').classList.toggle('active', nome === 'pdv');
+  if (nome === 'pdv') pdvApp.recarregar();
+}
+
+// ===== Leitor de código de barras/QR =====
+let html5QrCodeInstance = null;
+
+function abrirScanner() {
+  document.getElementById('overlay-scanner').classList.add('active');
+  document.getElementById('painel-scanner').classList.add('active');
+  document.getElementById('scanner-status').textContent = '';
+
+  html5QrCodeInstance = new Html5Qrcode("scanner-camera");
+  const config = { fps: 10, qrbox: { width: 250, height: 150 } };
+
+  html5QrCodeInstance.start(
+    { facingMode: "environment" }, // câmera de trás do celular
+    config,
+    (decodedText) => {
+      buscarPorCodigo(decodedText);
+    },
+    () => { /* ignora frames sem leitura, é normal enquanto mira */ }
+  ).catch((err) => {
+    document.getElementById('scanner-status').textContent =
+      '⚠️ Não consegui acessar a câmera. Confirme a permissão do navegador, ou use a busca manual abaixo.';
+    console.log('Erro ao iniciar câmera:', err);
+  });
+}
+
+function fecharScanner() {
+  document.getElementById('overlay-scanner').classList.remove('active');
+  document.getElementById('painel-scanner').classList.remove('active');
+  if (html5QrCodeInstance) {
+    html5QrCodeInstance.stop().catch(() => {});
+    html5QrCodeInstance = null;
+  }
+}
+
+// Casa o código lido (ou digitado) com uma entrega pendente e já abre a navegação
+function buscarPorCodigo(codigo) {
+  if (!codigo) return;
+  const alvo = codigo.trim().toLowerCase();
+
+  const encontrada = routesApp.entregas.find(e =>
+    e.status === 'pendente' && (
+      (e.pedido || '').toLowerCase() === alvo ||
+      (e.id || '').toLowerCase() === alvo ||
+      (e.pedido || '').toLowerCase().includes(alvo)
+    )
+  );
+
+  if (encontrada) {
+    document.getElementById('scanner-status').textContent = `✅ Encontrado: ${encontrada.cliente}. Abrindo navegação...`;
+    fecharScanner();
+    routesApp.navegar(encontrada.endereco);
+  } else {
+    document.getElementById('scanner-status').textContent =
+      `❌ Nenhuma entrega pendente com o código "${codigo}". Confira o número do pedido.`;
+  }
+}
+
+// ===== Lógica do Routes =====
+
+        // (config compartilhada declarada uma única vez, no topo do arquivo)
+
+        const routesApp = {
+            entregas: [],
+            idFalhaAtual: null,
+
+            init() {
+                const dadosSalvos = localStorage.getItem('mavyc_routes_db');
+                if (dadosSalvos) this.entregas = JSON.parse(dadosSalvos);
+                this.renderizar();
+                this.atualizarBadgeSync();
+                this.pedirPermissaoNotificacao();
+                this.verificarLembreteDiario();
+            },
+
+            atualizarBadgeSync() {
+                const badge = document.getElementById('sync-status');
+                if (supabaseClient) { badge.textContent = '🟢 sincronizado'; badge.className = 'sync-badge ok'; }
+                else { badge.textContent = '🔴 offline (só local)'; badge.className = 'sync-badge off'; }
+            },
+
+            salvarBanco() {
+                localStorage.setItem('mavyc_routes_db', JSON.stringify(this.entregas));
+                this.renderizar();
+            },
+
+            // --- SYNC COM SUPABASE ---
+            // Envia/atualiza uma entrega na tabela compartilhada. Se o Supabase
+            // não estiver configurado, isso simplesmente não faz nada (localStorage segue funcionando sozinho).
+            async syncEntrega(e) {
+                if (!supabaseClient) return;
+                try {
+                    await supabaseClient.from('entregas_registros').upsert({
+                        id: e.id,
+                        cliente: e.cliente,
+                        endereco: e.endereco,
+                        pedido: e.pedido,
+                        tipo: e.tipo || 'Amazon',
+                        status: e.status,
+                        motivo_falha: e.motivoFalha || null,
+                        preco_unitario: e.preco || 0,
+                        data_status: (e.status !== 'pendente') ? new Date().toISOString() : null
+                    });
+                } catch (err) {
+                    console.log('Falha ao sincronizar com Supabase:', err);
+                }
+            },
+
+            // --- LEMBRETE DIÁRIO (Notification API) ---
+            pedirPermissaoNotificacao() {
+                if ('Notification' in window && Notification.permission === 'default') {
+                    Notification.requestPermission();
+                }
+            },
+
+            verificarLembreteDiario() {
+                // Roda a cada 5 minutos enquanto o routesApp estiver aberto no navegador.
+                // Obs: isso só dispara com a aba aberta — não é push notification de verdade.
+                // Pra lembrete garantido mesmo com routesApp fechado, precisa de um Service Worker + push server.
+                setInterval(() => {
+                    const agora = new Date();
+                    const horaAtual = agora.getHours();
+                    const hoje = agora.toDateString();
+                    const ultimoLancamento = localStorage.getItem('mavyc_ultimo_lancamento_dia');
+
+                    // Lembrete às 18h se ainda não lançou nada hoje
+                    if (horaAtual >= 18 && ultimoLancamento !== hoje) {
+                        if ('Notification' in window && Notification.permission === 'granted') {
+                            new Notification('📦 Mavyc Routes', {
+                                body: 'Você já marcou suas entregas de hoje?',
+                            });
+                        }
+                    }
+                }, 5 * 60 * 1000);
+            },
+
+            marcarLancamentoHoje() {
+                localStorage.setItem('mavyc_ultimo_lancamento_dia', new Date().toDateString());
+            },
+
+            // --- PLANILHA / CSV ---
+            importarPlanilha(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    const workbook = XLSX.read(new Uint8Array(evt.target.result), {type: 'array'});
+                    const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+                    let cont = 0;
+                    json.forEach(row => {
+                        if(row.Cliente && row.Endereco) {
+                            const nova = {
+                                id: 'R_' + Date.now() + Math.random().toString(36).substr(2, 5),
+                                cliente: String(row.Cliente),
+                                endereco: String(row.Endereco),
+                                pedido: row.Pedido ? String(row.Pedido) : 'S/N',
+                                tipo: row.Tipo ? String(row.Tipo) : 'Amazon',
+                                preco: row.Preco ? parseFloat(row.Preco) : 0,
+                                obs: row.Obs ? String(row.Obs) : '',
+                                status: 'pendente',
+                                coord: null
+                            };
+                            routesApp.entregas.push(nova);
+                            routesApp.syncEntrega(nova);
+                            cont++;
+                        }
+                    });
+                    if (cont > 0) {
+                        routesApp.salvarBanco();
+                        alert(`✅ ${cont} paradas importadas! Clique em "Aplicar Rota" para o sistema organizar a ordem.`);
+                    } else {
+                        alert("Nenhuma entrega encontrada. Verifique se as colunas Cliente e Endereco existem.");
+                    }
+                    e.target.value = '';
+                };
+                reader.readAsArrayBuffer(file);
+            },
+
+            abrirPainel() { document.getElementById('overlay').classList.add('active'); document.getElementById('painel-adicionar').classList.add('active'); },
+            fecharPainel() { document.getElementById('overlay').classList.remove('active'); document.getElementById('painel-adicionar').classList.remove('active'); },
+
+            salvarParadaManual() {
+                const cliente = document.getElementById('input-cliente').value.trim();
+                const endereco = document.getElementById('input-endereco').value.trim();
+                if (!cliente || !endereco) return alert("Cliente e Endereço são obrigatórios!");
+
+                const nova = {
+                    id: 'R_' + Date.now(),
+                    cliente: cliente,
+                    endereco: endereco,
+                    pedido: document.getElementById('input-pedido').value || 'S/N',
+                    tipo: document.getElementById('input-tipo').value || 'Amazon',
+                    preco: parseFloat(document.getElementById('input-preco').value) || 0,
+                    obs: document.getElementById('input-obs').value,
+                    status: 'pendente',
+                    coord: null
+                };
+                this.entregas.push(nova);
+                this.syncEntrega(nova);
+                this.salvarBanco();
+
+                document.getElementById('input-cliente').value = ''; document.getElementById('input-endereco').value = '';
+                document.getElementById('input-pedido').value = ''; document.getElementById('input-obs').value = '';
+                document.getElementById('input-tipo').value = ''; document.getElementById('input-preco').value = '';
+                this.fecharPainel();
+            },
+
+            excluir(id) {
+                if(confirm("Remover esta parada da rota?")) {
+                    this.entregas = this.entregas.filter(e => e.id !== id);
+                    this.salvarBanco();
+                }
+            },
+
+            limparTudo() {
+                if(confirm("ATENÇÃO: Deseja apagar TODAS as entregas e limpar o sistema?")) {
+                    this.entregas = [];
+                    this.salvarBanco();
+                }
+            },
+
+            atualizarStatus(id, status) {
+                // Falha agora pede o motivo antes de confirmar (lacuna que resolvemos)
+                if (status === 'falhou') {
+                    this.idFalhaAtual = id;
+                    document.getElementById('overlay-falha').classList.add('active');
+                    document.getElementById('painel-falha').classList.add('active');
+                    return;
+                }
+                this._aplicarStatus(id, status, null);
+            },
+
+            confirmarFalha() {
+                const motivo = document.getElementById('input-motivo-falha').value;
+                this._aplicarStatus(this.idFalhaAtual, 'falhou', motivo);
+                document.getElementById('overlay-falha').classList.remove('active');
+                document.getElementById('painel-falha').classList.remove('active');
+            },
+
+            _aplicarStatus(id, status, motivo) {
+                const e = this.entregas.find(x => x.id === id);
+                if (e) {
+                    e.status = status;
+                    if (motivo) e.motivoFalha = motivo;
+                    this.entregas = this.entregas.filter(x => x.id !== id);
+                    this.entregas.push(e);
+                    this.syncEntrega(e);
+                    this.marcarLancamentoHoje();
+                    this.salvarBanco();
+                }
+            },
+
+            navegar(endereco) {
+                const linkMapas = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(endereco)}`;
+                window.open(linkMapas, '_blank');
+            },
+
+            iniciarRotaGoogleMaps() {
+                let pendentes = this.entregas.filter(e => e.status === 'pendente');
+                if (pendentes.length === 0) return alert("Você não tem entregas pendentes para navegar!");
+                if (pendentes.length === 1) { this.navegar(pendentes[0].endereco); return; }
+                let maxParadas = Math.min(pendentes.length, 10);
+                let waypoints = [];
+                for(let i = 0; i < maxParadas - 1; i++) waypoints.push(encodeURIComponent(pendentes[i].endereco));
+                let destinoFinal = encodeURIComponent(pendentes[maxParadas - 1].endereco);
+                let url = `https://www.google.com/maps/dir/?api=1&destination=${destinoFinal}&waypoints=${waypoints.join('|')}`;
+                window.open(url, '_blank');
+            },
+
+            calcularDistancia(lat1, lon1, lat2, lon2) {
+                const R = 6371;
+                const dLat = (lat2 - lat1) * Math.PI / 180;
+                const dLon = (lon2 - lon1) * Math.PI / 180;
+                const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                          Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                          Math.sin(dLon/2) * Math.sin(dLon/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                return R * c;
+            },
+
+            async aplicarRota() {
+                if (this.entregas.length === 0) return;
+                let pendentes = this.entregas.filter(e => e.status === 'pendente');
+                let finalizados = this.entregas.filter(e => e.status !== 'pendente');
+
+                if (pendentes.length <= 1) {
+                    this.entregas = [...pendentes, ...finalizados];
+                    this.salvarBanco();
+                    return alert("⚡ Lista organizada!");
+                }
+
+                let semCoord = pendentes.filter(e => !e.coord);
+                if (semCoord.length > 0) {
+                    document.getElementById('loading-overlay').classList.add('active');
+                    for(let i = 0; i < semCoord.length; i++) {
+                        document.getElementById('loading-text').innerText = `Roteirizando: Endereço ${i+1} de ${semCoord.length}...`;
+                        try {
+                            let res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(semCoord[i].endereco)}`);
+                            let data = await res.json();
+                            if (data && data.length > 0) semCoord[i].coord = { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+                            await new Promise(r => setTimeout(r, 1000));
+                        } catch(err) { console.log("Erro ao buscar GPS para: " + semCoord[i].endereco); }
+                    }
+                    document.getElementById('loading-overlay').classList.remove('active');
+                }
+
+                let rotaOtimizada = [];
+                while (pendentes.length > 0 && !pendentes[0].coord) rotaOtimizada.push(pendentes.shift());
+
+                if (pendentes.length > 0) {
+                    let atual = pendentes.shift();
+                    rotaOtimizada.push(atual);
+                    while (pendentes.length > 0) {
+                        let indexMaisProximo = 0;
+                        let menorDistancia = Infinity;
+                        for (let i = 0; i < pendentes.length; i++) {
+                            if (!pendentes[i].coord) continue;
+                            let dist = this.calcularDistancia(atual.coord.lat, atual.coord.lon, pendentes[i].coord.lat, pendentes[i].coord.lon);
+                            if (dist < menorDistancia) { menorDistancia = dist; indexMaisProximo = i; }
+                        }
+                        atual = pendentes.splice(indexMaisProximo, 1)[0];
+                        rotaOtimizada.push(atual);
+                    }
+                }
+                this.entregas = [...rotaOtimizada, ...finalizados];
+                this.salvarBanco();
+                alert("🚀 Rota Otimizada com Sucesso!\n\nClique no botão verde 'Iniciar Rota (Maps)' para abrir o GPS.");
+            },
+
+            renderizar() {
+                const container = document.getElementById('lista-entregas');
+                container.innerHTML = '';
+                const total = this.entregas.length;
+                const concluidas = this.entregas.filter(e => e.status === 'entregue').length;
+                const falhas = this.entregas.filter(e => e.status === 'falhou').length;
+                const processadas = concluidas + falhas;
+                let pct = total === 0 ? 0 : Math.round((processadas / total) * 100);
+
+                document.getElementById('progresso-texto').innerText = `${processadas}/${total} Processadas`;
+                document.getElementById('progresso-porcentagem').innerText = `${pct}%`;
+                document.getElementById('progresso-barra').style.width = `${pct}%`;
+
+                if (total === 0) {
+                    container.innerHTML = `<div class="empty-state"><span>📍</span><p>Nenhuma entrega na rota.</p></div>`;
+                    return;
+                }
+
+                this.entregas.forEach((e, index) => {
+                    let cStatus = e.status === 'entregue' ? 'status-entregue' : e.status === 'falhou' ? 'status-falhou' : '';
+                    let badge = e.status === 'entregue' ? '✅ Entregue' : e.status === 'falhou' ? `❌ Falhou${e.motivoFalha ? ' — ' + e.motivoFalha : ''}` : '';
+                    let numeracao = e.status === 'pendente' ? `<span style="background:var(--primaria); color:white; padding:2px 8px; border-radius:12px; font-size:12px; margin-right:5px;">#${index + 1}</span>` : '';
+                    let tipoChip = `<span class="tipo-chip">${e.tipo || 'Amazon'}</span>`;
+
+                    container.innerHTML += `
+                        <div class="card ${cStatus}">
+                            <button class="btn-excluir" onclick="routesApp.excluir('${e.id}')">🗑️</button>
+                            <div class="card-header">
+                                <div class="cliente-nome">${numeracao}${e.cliente}${tipoChip} <span style="font-size:12px; font-weight:normal; color:#64748b;">(PED: ${e.pedido})</span></div>
+                            </div>
+                            <div class="endereco">📍 ${e.endereco}</div>
+                            ${e.obs ? `<div class="obs">⚠️ ${e.obs}</div>` : ''}
+                            <div class="actions-row">
+                                <button class="btn-card btn-nav" onclick="routesApp.navegar('${e.endereco}')"><span>🧭</span> Navegar Solo</button>
+                                <button class="btn-card btn-danger" onclick="routesApp.atualizarStatus('${e.id}', 'falhou')"><span>❌</span> Falhou</button>
+                                <button class="btn-card btn-success" onclick="routesApp.atualizarStatus('${e.id}', 'entregue')"><span>✅</span> Entregue</button>
+                            </div>
+                            <div class="status-badge">${badge}</div>
+                        </div>
+                    `;
+                });
+            }
+        };
+
+        routesApp.init();
+    
+
+// ===== Lógica do PDV Master =====
+
+// (config compartilhada declarada uma única vez, no topo do arquivo)
+
+const pdvApp = {
+  entregas: [],
+  cartaoMovimentos: [],
+  chartComparativo: null,
+  chartLogistico: null,
+
+  limitesQuinzena(tipo, refDate) {
+    // Calcula as datas de início/fim da quinzena, com base numa data de referência (padrão: hoje)
+    const ref = refDate || new Date();
+    const ano = ref.getFullYear(), mes = ref.getMonth(), dia = ref.getDate();
+    if (tipo === 'q1') {
+      return { inicio: new Date(ano, mes - 1, 21), fim: new Date(ano, mes, 5, 23, 59, 59) };
+    }
+    if (tipo === 'q2') {
+      return { inicio: new Date(ano, mes, 6), fim: new Date(ano, mes, 20, 23, 59, 59) };
+    }
+    return null; // 'todos'
+  },
+
+  // Dado um objeto Date, descobre em qual quinzena ele cai e retorna label + datas de fechamento/recebimento
+  infoQuinzenaDaData(dataObj) {
+    const dia = dataObj.getDate();
+    const ano = dataObj.getFullYear(), mes = dataObj.getMonth();
+    if (dia >= 21) {
+      // 1ª quinzena: 21 deste mês até dia 05 do próximo. Pago dia 10 do próximo.
+      return {
+        label: '1ª Quinzena',
+        fechamento: new Date(ano, mes + 1, 5),
+        recebimento: new Date(ano, mes + 1, 10)
+      };
+    }
+    if (dia <= 5) {
+      // ainda dentro da 1ª quinzena que começou no mês anterior
+      return {
+        label: '1ª Quinzena',
+        fechamento: new Date(ano, mes, 5),
+        recebimento: new Date(ano, mes, 10)
+      };
+    }
+    // 2ª quinzena: dia 06 ao 20. Pago dia 25.
+    return {
+      label: '2ª Quinzena',
+      fechamento: new Date(ano, mes, 20),
+      recebimento: new Date(ano, mes, 25)
+    };
+  },
+
+  // Meta configurável, guardada por tipo (Amazon / Total Express)
+  getMeta(tipo) {
+    const salvo = localStorage.getItem(`pdv_meta_${tipo}`);
+    return salvo ? parseInt(salvo) : 150;
+  },
+  setMeta(tipo, valor) {
+    if (valor) localStorage.setItem(`pdv_meta_${tipo}`, valor);
+  },
+
+  async init() {
+    document.getElementById('input-data-operacao').valueAsDate = new Date();
+    this.atualizarBadgeSync();
+    await this.recarregar();
+    this.pedirPermissaoNotificacao();
+    this.verificarLembreteDiario();
+  },
+
+  atualizarBadgeSync() {
+    const badge = document.getElementById('sync-status');
+    if (supabaseClient) { badge.textContent = '🟢 conectado ao Routes'; badge.className = 'sync-badge ok'; }
+    else { badge.textContent = '🔴 offline — configure o Supabase'; badge.className = 'sync-badge off'; }
+  },
+
+  alternarCamposFormulario() {
+    const tipo = document.getElementById('input-tipo-registro').value;
+    document.getElementById('campos-entrega').style.display = (tipo === 'Cartao') ? 'none' : 'block';
+    document.getElementById('campos-cartao').style.display = (tipo === 'Cartao') ? 'block' : 'none';
+  },
+
+  async recarregar() {
+    if (!supabaseClient) {
+      this.entregas = [];
+      this.cartaoMovimentos = [];
+      this.renderizar();
+      return;
+    }
+
+    const filtro = document.getElementById('filtro-quinzena').value;
+    const periodo = this.limitesQuinzena(filtro);
+
+    let queryEntregas = supabaseClient.from('entregas_registros').select('*');
+    let queryCartao = supabaseClient.from('cartao_movimentos').select('*');
+
+    if (periodo) {
+      queryEntregas = queryEntregas
+        .gte('data_status', periodo.inicio.toISOString())
+        .lte('data_status', periodo.fim.toISOString());
+      queryCartao = queryCartao
+        .gte('data', periodo.inicio.toISOString())
+        .lte('data', periodo.fim.toISOString());
+    }
+
+    const { data: entregas, error: e1 } = await queryEntregas;
+    const { data: cartao, error: e2 } = await queryCartao;
+
+    this.entregas = entregas || [];
+    this.cartaoMovimentos = cartao || [];
+
+    if (e1 || e2) console.log('Erro ao buscar dados do Supabase', e1, e2);
+
+    // Busca também os últimos 4 meses (sem filtro) só pra alimentar os gráficos comparativos
+    let historico = [];
+    if (!periodo) {
+      historico = this.entregas;
+    } else {
+      const { data: todos } = await supabaseClient.from('entregas_registros').select('*');
+      historico = todos || [];
+    }
+    this.historicoCompleto = historico;
+
+    this.renderizar();
+  },
+
+  // --- FORMULÁRIO MANUAL (mesmos campos do PDV de referência) ---
+  async salvarRegistroManual() {
+    if (!supabaseClient) return alert('Supabase não configurado ainda.');
+
+    const dataOperacao = document.getElementById('input-data-operacao').valueAsDate || new Date();
+    const tipo = document.getElementById('input-tipo-registro').value;
+
+    if (tipo === 'Cartao') {
+      const valor = parseFloat(document.getElementById('input-valor-cartao').value);
+      if (!valor) return alert('Informe um valor válido.');
+      await supabaseClient.from('cartao_movimentos').insert({ valor: valor, data: dataOperacao.toISOString() });
+      document.getElementById('input-valor-cartao').value = '';
+    } else {
+      const qtdEntregues = parseInt(document.getElementById('input-qtd-entregues').value) || 0;
+      const qtdNcs = parseInt(document.getElementById('input-qtd-ncs').value) || 0;
+      const preco = parseFloat(document.getElementById('input-preco-unitario').value) || 0;
+      const meta = document.getElementById('input-meta-quinzena').value;
+      if (qtdEntregues === 0 && qtdNcs === 0) return alert('Informe ao menos uma quantidade (entregues ou NCs).');
+
+      this.setMeta(tipo, meta);
+
+      const linhas = [];
+      for (let i = 0; i < qtdEntregues; i++) {
+        linhas.push({
+          id: 'M_' + Date.now() + '_' + i,
+          cliente: 'Lançamento manual', tipo: tipo, status: 'entregue',
+          preco_unitario: preco, data_status: dataOperacao.toISOString()
+        });
+      }
+      for (let i = 0; i < qtdNcs; i++) {
+        linhas.push({
+          id: 'M_' + Date.now() + '_nc_' + i,
+          cliente: 'Lançamento manual', tipo: tipo, status: 'falhou',
+          motivo_falha: 'Não informado', preco_unitario: 0, data_status: dataOperacao.toISOString()
+        });
+      }
+      if (linhas.length > 0) await supabaseClient.from('entregas_registros').insert(linhas);
+
+      document.getElementById('input-qtd-entregues').value = '';
+      document.getElementById('input-qtd-ncs').value = '';
+      document.getElementById('input-preco-unitario').value = '';
+    }
+
+    this.marcarLancamentoHoje();
+    this.recarregar();
+    alert('✅ Registro salvo!');
+  },
+
+  async excluirRegistro(id, tabela) {
+    if (!confirm('Excluir este lançamento? Essa ação não pode ser desfeita.')) return;
+    if (!supabaseClient) return;
+    await supabaseClient.from(tabela).delete().eq('id', id);
+    this.recarregar();
+  },
+
+  // --- LEMBRETE DIÁRIO ---
+  pedirPermissaoNotificacao() {
+    if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+  },
+  marcarLancamentoHoje() {
+    localStorage.setItem('pdv_ultimo_lancamento_dia', new Date().toDateString());
+  },
+  verificarLembreteDiario() {
+    setInterval(() => {
+      const agora = new Date();
+      const hoje = agora.toDateString();
+      const ultimo = localStorage.getItem('pdv_ultimo_lancamento_dia');
+      if (agora.getHours() >= 20 && ultimo !== hoje) {
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification('📊 PDV Master', { body: 'Confere se todo o movimento de hoje já está lançado.' });
+        }
+      }
+    }, 5 * 60 * 1000);
+  },
+
+  // --- GRÁFICOS COMPARATIVOS ---
+  renderizarGraficos() {
+    if (typeof Chart === 'undefined') return;
+    const base = this.historicoCompleto || this.entregas;
+
+    // Agrupa por quinzena (label + ano/mes de referência) pra comparar período a período
+    const grupos = {};
+    base.forEach(e => {
+      if (!e.data_status) return;
+      const d = new Date(e.data_status);
+      const info = this.infoQuinzenaDaData(d);
+      const chave = `${info.label} ${d.getMonth() + 1}/${d.getFullYear()}`;
+      if (!grupos[chave]) grupos[chave] = { entregues: 0, falhas: 0, faturamento: 0 };
+      if (e.status === 'entregue') { grupos[chave].entregues++; grupos[chave].faturamento += parseFloat(e.preco_unitario) || 0; }
+      if (e.status === 'falhou') grupos[chave].falhas++;
+    });
+
+    const chaves = Object.keys(grupos).slice(-6); // últimas 6 quinzenas
+    const labels = chaves;
+    const dadosEntregas = chaves.map(k => grupos[k].entregues);
+    const dadosFaturamento = chaves.map(k => grupos[k].faturamento);
+    const dadosFalhas = chaves.map(k => grupos[k].falhas);
+
+    const movCartaoTotal = this.cartaoMovimentos.reduce((s, m) => s + (parseFloat(m.valor) || 0), 0);
+
+    const ctx1 = document.getElementById('grafico-comparativo');
+    if (this.chartComparativo) this.chartComparativo.destroy();
+    if (ctx1) {
+      this.chartComparativo = new Chart(ctx1, {
+        type: 'bar',
+        data: {
+          labels: labels.length ? labels : ['Sem dados ainda'],
+          datasets: [
+            { label: 'Entregas', data: dadosEntregas.length ? dadosEntregas : [0], backgroundColor: '#2563eb' },
+            { label: 'Faturamento (R$)', data: dadosFaturamento.length ? dadosFaturamento : [0], backgroundColor: '#10b981' }
+          ]
+        },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+      });
+    }
+
+    const ctx2 = document.getElementById('grafico-logistico');
+    if (this.chartLogistico) this.chartLogistico.destroy();
+    if (ctx2) {
+      this.chartLogistico = new Chart(ctx2, {
+        type: 'line',
+        data: {
+          labels: labels.length ? labels : ['Sem dados ainda'],
+          datasets: [
+            { label: 'Entregas', data: dadosEntregas.length ? dadosEntregas : [0], borderColor: '#2563eb', tension: 0.3 },
+            { label: 'NCs', data: dadosFalhas.length ? dadosFalhas : [0], borderColor: '#ef4444', tension: 0.3 }
+          ]
+        },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+      });
+    }
+  },
+
+  renderizar() {
+    const entregues = this.entregas.filter(e => e.status === 'entregue');
+    const falhas = this.entregas.filter(e => e.status === 'falhou');
+    const totalProcessadas = entregues.length + falhas.length;
+
+    const amazon = entregues.filter(e => e.tipo === 'Amazon').length;
+    const totalExpress = entregues.filter(e => e.tipo === 'Total Express').length;
+    const metaAmazon = this.getMeta('Amazon');
+    const metaTotalExpress = this.getMeta('Total Express');
+
+    document.getElementById('qtd-amazon').textContent = `${amazon} / ${metaAmazon}`;
+    document.getElementById('qtd-total-express').textContent = `${totalExpress} / ${metaTotalExpress}`;
+
+    const faturamento = entregues.reduce((soma, e) => soma + (parseFloat(e.preco_unitario) || 0), 0);
+    document.getElementById('faturamento-entregas').textContent = `R$ ${faturamento.toFixed(2).replace('.', ',')}`;
+    const porPacote = entregues.length > 0 ? faturamento / entregues.length : 0;
+    document.getElementById('faturamento-por-pacote').textContent = `R$ ${porPacote.toFixed(2).replace('.', ',')} / pacote`;
+
+    const movCartao = this.cartaoMovimentos.reduce((soma, m) => soma + (parseFloat(m.valor) || 0), 0);
+    document.getElementById('movimento-cartao').textContent = `R$ ${movCartao.toFixed(2).replace('.', ',')}`;
+
+    // Taxa de NC
+    const taxaNc = totalProcessadas > 0 ? Math.round((falhas.length / totalProcessadas) * 100) : 0;
+    const elTaxa = document.getElementById('taxa-nc');
+    elTaxa.textContent = `${taxaNc}%`;
+    elTaxa.style.color = taxaNc > 10 ? 'var(--falha)' : 'var(--texto)';
+
+    const motivos = {};
+    falhas.forEach(f => { const m = f.motivo_falha || 'Não informado'; motivos[m] = (motivos[m] || 0) + 1; });
+    const resumoMotivos = Object.entries(motivos).map(([m, n]) => `${m}: ${n}`).join(' · ') || 'Sem dados de motivo ainda';
+    document.getElementById('nc-por-motivo').textContent = resumoMotivos;
+
+    // Ritmo (só faz sentido com quinzena selecionada)
+    const filtro = document.getElementById('filtro-quinzena').value;
+    const ritmoTexto = document.getElementById('ritmo-texto');
+    const ritmoBar = document.getElementById('ritmo-bar');
+    if (filtro === 'todos') {
+      ritmoTexto.textContent = 'Selecione uma quinzena específica pra ver o ritmo da meta.';
+      ritmoBar.style.width = '0%';
+    } else {
+      const periodo = this.limitesQuinzena(filtro);
+      const hoje = new Date();
+      const totalDias = Math.max(1, Math.round((periodo.fim - periodo.inicio) / 86400000));
+      const diasPassados = Math.min(totalDias, Math.max(0, Math.round((hoje - periodo.inicio) / 86400000)));
+      const pctTempo = Math.round((diasPassados / totalDias) * 100);
+      const metaTotal = metaAmazon + metaTotalExpress;
+      const pctMeta = metaTotal > 0 ? Math.round(((amazon + totalExpress) / metaTotal) * 100) : 0;
+
+      ritmoBar.style.width = `${Math.min(100, pctMeta)}%`;
+      ritmoBar.style.background = pctMeta >= pctTempo ? 'var(--sucesso)' : 'var(--alerta)';
+      ritmoTexto.textContent = `${diasPassados}/${totalDias} dias da quinzena (${pctTempo}%) · Meta batida: ${pctMeta}%`;
+    }
+
+    // Tabela histórico (agora com Quinzena, Fechamento, Recebimento e Ações)
+    const tbody = document.getElementById('tabela-historico');
+    tbody.innerHTML = '';
+    const todosOrdenados = [...this.entregas].sort((a, b) => new Date(b.data_status || b.data_criacao) - new Date(a.data_status || a.data_criacao));
+    todosOrdenados.forEach(e => {
+      const dataObj = e.data_status ? new Date(e.data_status) : new Date(e.data_criacao);
+      const data = dataObj.toLocaleDateString('pt-BR');
+      const info = this.infoQuinzenaDaData(dataObj);
+      const total = e.status === 'entregue' ? (parseFloat(e.preco_unitario) || 0) : 0;
+      tbody.innerHTML += `<tr>
+        <td>${data}</td>
+        <td>${info.label}</td>
+        <td>${e.tipo || '-'}</td>
+        <td>${e.status === 'entregue' ? '1' : '0'}</td>
+        <td>${e.status === 'falhou' ? '1' : '0'}</td>
+        <td>R$ ${(parseFloat(e.preco_unitario) || 0).toFixed(2).replace('.', ',')}</td>
+        <td>${info.fechamento.toLocaleDateString('pt-BR')}</td>
+        <td>${info.recebimento.toLocaleDateString('pt-BR')}</td>
+        <td>R$ ${total.toFixed(2).replace('.', ',')}</td>
+        <td><button class="btn-acao" style="padding:4px 8px; color:var(--falha);" onclick="pdvApp.excluirRegistro('${e.id}', 'entregas_registros')">🗑️</button></td>
+      </tr>`;
+    });
+
+    this.renderizarGraficos();
+  },
+
+  exportarExcel() {
+    const linhas = this.entregas.map(e => ({
+      Data: e.data_status ? new Date(e.data_status).toLocaleDateString('pt-BR') : '-',
+      Cliente: e.cliente, Tipo: e.tipo, Status: e.status,
+      MotivoNC: e.motivo_falha || '', PrecoUnitario: e.preco_unitario
+    }));
+    const ws = XLSX.utils.json_to_sheet(linhas);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Historico');
+    XLSX.writeFile(wb, 'pdv-master-relatorio.xlsx');
+  }
+};
+
+pdvApp.init();
+
+</script>
+</body>
+</html>
