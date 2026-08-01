@@ -116,6 +116,43 @@
 body { padding-top: 220px; }
 #view-pdv { display: none; padding-top: 0; }
 #view-pdv h1, #view-pdv .sub, #view-pdv .sync-badge { margin-left: 15px; }
+
+/* ===== Responsividade Mobile ===== */
+@media (max-width: 768px) {
+  body { padding-top: 180px; padding-bottom: 100px; }
+  .tab-bar { flex-wrap: wrap; }
+  .tab-btn { padding: 12px; font-size: 12px; }
+  .header-title { font-size: 18px; }
+  .action-bar { gap: 8px; padding: 0 10px 10px 10px; }
+  .btn-acao { padding: 8px 12px; font-size: 12px; }
+  .container { padding: 0 10px; gap: 12px; }
+  .card { padding: 14px; }
+  .actions-row { grid-template-columns: 1fr 1fr; gap: 6px; }
+  .btn-card { padding: 10px 3px; font-size: 11px; }
+  .cards-grid { grid-template-columns: 1fr; }
+  .push-lateral { max-width: 100%; }
+  .form-control { padding: 12px; font-size: 16px; }
+}
+
+@media (max-width: 480px) {
+  body { padding-top: 200px; padding-bottom: 120px; }
+  .header-content { padding: 15px 15px 8px 15px; }
+  .progress-info { font-size: 12px; }
+  .action-bar { gap: 6px; padding: 0 8px 8px 8px; overflow-x: auto; }
+  .btn-acao { padding: 8px 10px; font-size: 11px; gap: 4px; }
+  .container { padding: 0 8px; gap: 10px; }
+  .card { padding: 12px; border-radius: 10px; }
+  .card-header { padding-right: 25px; }
+  .cliente-nome { font-size: 15px; }
+  .endereco { font-size: 12px; }
+  .actions-row { grid-template-columns: 1fr; gap: 6px; }
+  .btn-card { padding: 8px 2px; font-size: 10px; }
+  .fab { width: 55px; height: 55px; font-size: 24px; bottom: 20px; right: 20px; }
+  .tab-bar { position: fixed; top: 0; }
+  .tab-btn { padding: 10px; font-size: 11px; }
+  table { font-size: 11px; }
+  th, td { padding: 8px 4px; }
+}
 </style>
 </head>
 <body>
