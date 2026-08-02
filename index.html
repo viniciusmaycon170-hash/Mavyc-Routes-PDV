@@ -238,13 +238,13 @@ if (!localStorage.getItem('userCompanyName')) {
             <div class="form-group"><label>Cliente</label><input type="text" id="input-cliente" class="form-control"></div>
             <div class="form-group"><label>Endereço Completo</label><input type="text" id="input-endereco" class="form-control" placeholder="Rua, Número, Bairro"></div>
             <div class="form-group"><label>Nº Pedido (Opcional)</label><input type="text" id="input-pedido" class="form-control"></div>
-            <!-- NOVO: tipo customizável, não travado em Amazon/Total Express -->
+            <!-- NOVO: tipo customizável, não travado em TikTok Shop/Shopee -->
             <div class="form-group">
                 <label>Tipo de Entrega</label>
-                <input type="text" id="input-tipo" class="form-control" list="lista-tipos" placeholder="Amazon, Total Express, ou outra...">
+                <input type="text" id="input-tipo" class="form-control" list="lista-tipos" placeholder="TikTok Shop, Shopee, ou outra...">
                 <datalist id="lista-tipos">
-                    <option value="Amazon"></option>
-                    <option value="Total Express"></option>
+                    <option value="TikTok Shop"></option>
+                    <option value="Shopee"></option>
                 </datalist>
             </div>
             <div class="form-group"><label>Preço Unitário (R$)</label><input type="number" step="0.01" id="input-preco" class="form-control" placeholder="0.00"></div>
@@ -324,8 +324,8 @@ if (!localStorage.getItem('userCompanyName')) {
   <div class="form-group">
     <label>Tipo de Registro</label>
     <select id="input-tipo-registro" class="form-control" onchange="pdvApp.alternarCamposFormulario()">
-      <option value="Amazon">Entrega Amazon</option>
-      <option value="Total Express">Entrega Total Express</option>
+      <option value="TikTok Shop">Entrega TikTok Shop</option>
+      <option value="Shopee">Entrega Shopee</option>
       <option value="Cartao">Cartão de Crédito</option>
     </select>
   </div>
@@ -343,11 +343,11 @@ if (!localStorage.getItem('userCompanyName')) {
 
 <div class="cards-grid">
   <div class="card-metric">
-    <div class="label">📦 Pacotes Amazon</div>
+    <div class="label">📦 Pacotes TikTok Shop</div>
     <div class="valor" id="qtd-amazon">0 / 150</div>
   </div>
   <div class="card-metric">
-    <div class="label">📦 Pacotes Total Express</div>
+    <div class="label">📦 Pacotes Shopee</div>
     <div class="valor" id="qtd-total-express">0 / 150</div>
   </div>
   <div class="card-metric">
@@ -513,7 +513,7 @@ function buscarPorCodigo(codigo) {
                         cliente: e.cliente,
                         endereco: e.endereco,
                         pedido: e.pedido,
-                        tipo: e.tipo || 'Amazon',
+                        tipo: e.tipo || 'TikTok Shop',
                         status: e.status,
                         motivo_falha: e.motivoFalha || null,
                         preco_unitario: e.preco || 0,
@@ -572,7 +572,7 @@ function buscarPorCodigo(codigo) {
                                 cliente: String(row.Cliente),
                                 endereco: String(row.Endereco),
                                 pedido: row.Pedido ? String(row.Pedido) : 'S/N',
-                                tipo: row.Tipo ? String(row.Tipo) : 'Amazon',
+                                tipo: row.Tipo ? String(row.Tipo) : 'TikTok Shop',
                                 preco: row.Preco ? parseFloat(row.Preco) : 0,
                                 obs: row.Obs ? String(row.Obs) : '',
                                 status: 'pendente',
@@ -607,7 +607,7 @@ function buscarPorCodigo(codigo) {
                     cliente: cliente,
                     endereco: endereco,
                     pedido: document.getElementById('input-pedido').value || 'S/N',
-                    tipo: document.getElementById('input-tipo').value || 'Amazon',
+                    tipo: document.getElementById('input-tipo').value || 'TikTok Shop',
                     preco: parseFloat(document.getElementById('input-preco').value) || 0,
                     obs: document.getElementById('input-obs').value,
                     status: 'pendente',
@@ -767,7 +767,7 @@ function buscarPorCodigo(codigo) {
                     let cStatus = e.status === 'entregue' ? 'status-entregue' : e.status === 'falhou' ? 'status-falhou' : '';
                     let badge = e.status === 'entregue' ? '✅ Entregue' : e.status === 'falhou' ? `❌ Falhou${e.motivoFalha ? ' — ' + e.motivoFalha : ''}` : '';
                     let numeracao = e.status === 'pendente' ? `<span style="background:var(--primaria); color:white; padding:2px 8px; border-radius:12px; font-size:12px; margin-right:5px;">#${index + 1}</span>` : '';
-                    let tipoChip = `<span class="tipo-chip">${e.tipo || 'Amazon'}</span>`;
+                    let tipoChip = `<span class="tipo-chip">${e.tipo || 'TikTok Shop'}</span>`;
 
                     container.innerHTML += `
                         <div class="card ${cStatus}">
@@ -843,7 +843,7 @@ const pdvApp = {
     };
   },
 
-  // Meta configurável, guardada por tipo (Amazon / Total Express)
+  // Meta configurável, guardada por tipo (TikTok Shop / Shopee)
   getMeta(tipo) {
     const salvo = localStorage.getItem(`pdv_meta_${tipo}`);
     return salvo ? parseInt(salvo) : 150;
@@ -1054,12 +1054,12 @@ const pdvApp = {
     const falhas = this.entregas.filter(e => e.status === 'falhou');
     const totalProcessadas = entregues.length + falhas.length;
 
-    const amazon = entregues.filter(e => e.tipo === 'Amazon').length;
-    const totalExpress = entregues.filter(e => e.tipo === 'Total Express').length;
-    const metaAmazon = this.getMeta('Amazon');
-    const metaTotalExpress = this.getMeta('Total Express');
+    const amazon = entregues.filter(e => e.tipo === 'TikTok Shop').length;
+    const totalExpress = entregues.filter(e => e.tipo === 'Shopee').length;
+    const metaTikTok Shop = this.getMeta('TikTok Shop');
+    const metaTotalExpress = this.getMeta('Shopee');
 
-    document.getElementById('qtd-amazon').textContent = `${amazon} / ${metaAmazon}`;
+    document.getElementById('qtd-amazon').textContent = `${amazon} / ${metaTikTok Shop}`;
     document.getElementById('qtd-total-express').textContent = `${totalExpress} / ${metaTotalExpress}`;
 
     const faturamento = entregues.reduce((soma, e) => soma + (parseFloat(e.preco_unitario) || 0), 0);
@@ -1094,7 +1094,7 @@ const pdvApp = {
       const totalDias = Math.max(1, Math.round((periodo.fim - periodo.inicio) / 86400000));
       const diasPassados = Math.min(totalDias, Math.max(0, Math.round((hoje - periodo.inicio) / 86400000)));
       const pctTempo = Math.round((diasPassados / totalDias) * 100);
-      const metaTotal = metaAmazon + metaTotalExpress;
+      const metaTotal = metaTikTok Shop + metaTotalExpress;
       const pctMeta = metaTotal > 0 ? Math.round(((amazon + totalExpress) / metaTotal) * 100) : 0;
 
       ritmoBar.style.width = `${Math.min(100, pctMeta)}%`;
