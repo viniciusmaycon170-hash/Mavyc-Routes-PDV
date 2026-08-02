@@ -141,8 +141,16 @@ body { padding-top: 220px; }
 
 
 </style>
+
+<script>
+// Definir nome padrão "Mavyc" no localStorage
+if (!localStorage.getItem('userCompanyName')) {
+    localStorage.setItem('userCompanyName', 'Mavyc');
+}
+</script>
 </head>
 <body>
+<input type="hidden" id="company-name" value="Mavyc">
 
 <div class="tab-bar">
   <button class="tab-btn active" id="tab-routes" onclick="mostrarView('routes')">🧭 Rotas</button>

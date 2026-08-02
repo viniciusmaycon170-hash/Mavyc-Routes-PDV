@@ -72,8 +72,16 @@
             .tabela-dados th, .tabela-dados td { font-size: 14px; padding: 12px; }
         }
     </style>
+
+<script>
+// Definir nome padrão "Mavyc" no localStorage
+if (!localStorage.getItem('userCompanyName')) {
+    localStorage.setItem('userCompanyName', 'Mavyc');
+}
+</script>
 </head>
 <body>
+<input type="hidden" id="company-name" value="Mavyc">
 
     <div class="top-bar">
         <div><strong>PDV MASTER SETUP</strong> | Gestão Dinâmica de Quinzenas</div>
