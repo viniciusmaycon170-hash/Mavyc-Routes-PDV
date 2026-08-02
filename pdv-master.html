@@ -1,0 +1,532 @@
+<html lang="pt-BR"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDV Master - Controle de Quinzenas e Finanças</title>
+    <!-- Bibliotecas Oficiais -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        :root { 
+            --primaria: #020617; 
+            --secundaria: #1e3a8a; 
+            --azul-eletrico: #2563eb; 
+            --azul-fundo: #0f172a;
+            --card-fundo: #1e293b;
+            --sucesso: #10b981; 
+            --alerta: #f59e0b;
+            --erro: #ef4444; 
+            --texto: #f8fafc; 
+            --texto-mutado: #94a3b8;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+        body { background: var(--azul-fundo); color: var(--texto); min-height: 100vh; overflow-y: auto; padding-bottom: 30px; }
+        
+        .top-bar { background: var(--primaria); padding: 15px 20px; min-height: 60px; display: flex; flex-direction: column; gap: 10px; justify-content: space-between; align-items: center; width: 100%; border-bottom: 2px solid var(--secundaria); text-align: center; }
+        
+        .dashboard-container { max-width: 1400px; margin: 10px auto; padding: 0 15px; display: flex; flex-direction: column; gap: 15px; }
+        
+        .painel-filtros { background: var(--card-fundo); padding: 15px; border-radius: 12px; border: 1px solid var(--secundaria); display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; align-items: flex-end; }
+        .input-group { display: flex; flex-direction: column; gap: 5px; }
+        .input-group label { font-size: 12px; font-weight: bold; color: var(--texto-mutado); text-transform: uppercase; }
+        .input-group input, .input-group select { padding: 12px; border: 1px solid var(--secundaria); background: var(--primaria); color: white; border-radius: 8px; font-size: 15px; outline: none; }
+        .input-group input:focus, .input-group select:focus { border-color: var(--azul-eletrico); }
+        
+        .grid-metricas { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+        .card-metrica { background: var(--card-fundo); border: 1px solid var(--secundaria); border-radius: 10px; padding: 15px 10px; text-align: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3); }
+        .card-metrica p { font-size: 11px; color: var(--texto-mutado); font-weight: bold; margin-bottom: 4px; }
+        .card-metrica h2 { font-size: 20px; font-weight: 900; color: white; word-break: break-all; }
+        .card-metrica.meta-atingida { border-left: 4px solid var(--sucesso); }
+        .card-metrica.meta-atrasada { border-left: 4px solid var(--erro); }
+
+        .grid-graficos { display: flex; flex-direction: column; gap: 15px; }
+        .card-grafico { background: var(--card-fundo); border: 1px solid var(--secundaria); border-radius: 12px; padding: 15px; height: 320px; display: flex; flex-direction: column; }
+        .card-grafico h3 { font-size: 14px; margin-bottom: 10px; color: var(--azul-eletrico); border-bottom: 1px solid var(--secundaria); padding-bottom: 5px; }
+        .canvas-container { flex: 1; position: relative; width: 100%; height: 100%; }
+
+        .btn-acao { width: 100%; padding: 14px; background: var(--secundaria); color: white; border: 1px solid var(--azul-eletrico); border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; text-transform: uppercase; font-size: 13px; display: flex; justify-content: center; align-items: center; }
+        .btn-acao:hover { background: var(--azul-eletrico); }
+
+        .btn-tabela { padding: 6px 10px; border: 1px solid transparent; border-radius: 6px; font-weight: bold; font-size: 11px; cursor: pointer; text-transform: uppercase; transition: 0.2s; }
+        .btn-tabela.edit { background: rgba(245, 158, 11, 0.1); color: var(--alerta); border-color: var(--alerta); margin-right: 5px; }
+        .btn-tabela.edit:hover { background: var(--alerta); color: var(--primaria); }
+        .btn-tabela.del { background: rgba(239, 68, 68, 0.1); color: var(--erro); border-color: var(--erro); }
+        .btn-tabela.del:hover { background: var(--erro); color: white; }
+
+        .responsivo-tabela { width: 100%; overflow-x: auto; border-radius: 8px; margin-top: 10px; border: 1px solid var(--secundaria); }
+        .tabela-dados { width: 100%; border-collapse: collapse; background: var(--card-fundo); min-width: 900px; }
+        .tabela-dados th, .tabela-dados td { padding: 12px 10px; text-align: left; border-bottom: 1px solid var(--secundaria); font-size: 13px; }
+        .tabela-dados th { background: var(--primaria); color: var(--texto-mutado); font-size: 11px; text-transform: uppercase; }
+
+        @media (min-width: 768px) {
+            .top-bar { flex-direction: row; padding: 0 25px; height: 60px; text-align: left; }
+            .btn-acao { width: auto; padding: 12px 20px; font-size: 12px; }
+            .dashboard-container { margin: 20px auto; gap: 20px; padding: 0 20px; }
+            .painel-filtros { padding: 20px; gap: 15px; }
+            .grid-metricas { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; }
+            .card-metrica { padding: 20px; }
+            .card-metrica h2 { font-size: 26px; }
+            .grid-graficos { grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); display: grid; gap: 20px; }
+            .card-grafico { padding: 20px; height: 365px; }
+            .card-grafico h3 { font-size: 16px; }
+            .tabela-dados th, .tabela-dados td { font-size: 14px; padding: 12px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="top-bar">
+        <div><strong>PDV MASTER SETUP</strong> | Gestão Dinâmica de Quinzenas</div>
+        <button class="btn-acao" onclick="exportarExcel()" data-manus_clickable="true" data-manus_click_id="1">Exportar Relatório (.xlsx)</button>
+    </div>
+
+    <div class="dashboard-container">
+        
+        <!-- PAINEL DE REGISTRO E FILTROS -->
+        <div class="painel-filtros">
+            <input type="hidden" id="edit-index" value="-1">
+            
+            <div class="input-group">
+                <label>Data de Operação</label>
+                <input type="date" id="data-operacao" data-manus_clickable="true" data-manus_click_id="2">
+            </div>
+            
+            <div class="input-group">
+                <label>Filtrar Visualização</label>
+                <select id="filtro-quinzena-select" onchange="processarEAtualizarDashboard()" data-manus_clickable="true" data-manus_click_id="3">
+                    <option value="todas">Visão Geral (Todos)</option>
+                    <option value="1">1ª Quinzena (Dia 21 ao 05 | Pago: 10)</option>
+                    <option value="2">2ª Quinzena (Dia 06 ao 20 | Pago: 25)</option>
+                </select>
+            </div>
+            
+            <div class="input-group">
+                <label>Tipo de Registro</label>
+                <select id="tipo-registro" onchange="alternarCamposForm(this.value)" data-manus_clickable="true" data-manus_click_id="4">
+                    <option value="amazon">Entrega TikTok Shop</option>
+                    <option value="total_express">Entrega Shopee</option>
+                    <option value="cartao">Cartão de Crédito</option>
+                </select>
+            </div>
+            
+            <div class="input-group" id="grupo-quantidade">
+                <label id="label-quantidade">Qtd Entregues (Sucesso)</label>
+                <input type="number" id="qtd-sucesso" value="0" min="0" data-manus_clickable="true" data-manus_click_id="5">
+            </div>
+            
+            <div class="input-group" id="grupo-insucesso">
+                <label>Qtd NCs (Insucesso)</label>
+                <input type="number" id="qtd-insucesso" value="0" min="0" data-manus_clickable="true" data-manus_click_id="6">
+            </div>
+            
+            <div class="input-group" id="grupo-preco">
+                <label>Preço Unitário / Valor (R$)</label>
+                <input type="number" id="preco-entrega" value="5.50" step="0.01" data-manus_clickable="true" data-manus_click_id="7">
+            </div>
+            
+            <div class="input-group">
+                <label>Meta da Quinzena</label>
+                <input type="number" id="meta-quinzenal" value="150" onkeyup="processarEAtualizarDashboard()" data-manus_clickable="true" data-manus_click_id="8">
+            </div>
+            
+            <button class="btn-acao" id="btn-salvar" onclick="lancarDados()" data-manus_clickable="true" data-manus_click_id="9">Salvar Registro</button>
+        </div>
+
+        <!-- CARDS INFORMATIVOS -->
+        <div class="grid-metricas">
+            <div class="card-metrica meta-atrasada" id="card-meta-amazon">
+                <p>Pacotes TikTok Shop</p>
+                <h2 id="txt-meta-amazon">57 / 150</h2>
+            </div>
+            <div class="card-metrica meta-atrasada" id="card-meta-total">
+                <p>Pacotes Shopee</p>
+                <h2 id="txt-meta-total">18 / 150</h2>
+            </div>
+            <div class="card-metrica">
+                <p>Faturamento Entregas</p>
+                <h2 style="color: var(--sucesso);" id="txt-fat-logistica">R$ 421.50</h2>
+            </div>
+            <div class="card-metrica">
+                <p>Movimento Cartões</p>
+                <h2 style="color: var(--azul-eletrico);" id="txt-mov-cartao">R$ 18.00</h2>
+            </div>
+        </div>
+
+        <!-- GRÁFICOS SEPARADOS POR QUINZENA -->
+        <div class="grid-graficos">
+            <div class="card-grafico">
+                <h3>📦 Comparativo por Quinzenas (Entregas e Cartões)</h3>
+                <div class="canvas-container">
+                    <canvas id="chartQuinzenal" width="560" height="285" style="display: block; box-sizing: border-box; height: 285px; width: 560.5px;" data-manus_clickable="true" data-manus_click_id="10"></canvas>
+                </div>
+            </div>
+            <div class="card-grafico">
+                <h3>📈 Desempenho Logístico (Entregas vs NCs)</h3>
+                <div class="canvas-container">
+                    <canvas id="chartNCs" width="560" height="285" style="display: block; box-sizing: border-box; height: 285px; width: 560.5px;" data-manus_clickable="true" data-manus_click_id="11"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABELA HISTÓRICA -->
+        <div style="background: var(--card-fundo); padding: 15px; border-radius: 12px; border: 1px solid var(--secundaria);">
+            <h3 style="font-size: 14px; margin-bottom: 10px; color: var(--azul-eletrico);">📋 Histórico Completo de Lançamentos</h3>
+            <div class="responsivo-tabela">
+                <table class="tabela-dados">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Quinzena</th>
+                            <th>Tipo</th>
+                            <th>Entregas / Transações</th>
+                            <th>NCs (Insucesso)</th>
+                            <th>Preço Un.</th>
+                            <th>Fechamento</th>
+                            <th>Recebimento</th>
+                            <th>Total (R$)</th>
+                            <th style="text-align: center;">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="corpo-tabela-historico">
+                    <tr>
+                        <td>22/07/2026</td>
+                        <td><span style="color: var(--azul-eletrico); font-weight:bold;">1ª Quinzena</span></td>
+                        <td><strong>TikTok Shop</strong></td>
+                        <td>35</td>
+                        <td>5</td>
+                        <td>R$ 5.50</td>
+                        <td><span style="color: var(--alerta); font-weight:bold;">05/08</span></td>
+                        <td><span style="color: var(--sucesso); font-weight:bold;">10/08</span></td>
+                        <td>R$ 192.50</td>
+                        <td style="text-align: center; min-width: 140px;">
+                            <button class="btn-tabela edit" onclick="iniciarEdicao(3)" data-manus_clickable="true" data-manus_click_id="12">Editar</button>
+                            <button class="btn-tabela del" onclick="apagarRegistro(3)" data-manus_clickable="true" data-manus_click_id="13">Apagar</button>
+                        </td>
+                    </tr>
+                
+                    <tr>
+                        <td>12/07/2026</td>
+                        <td><span style="color: var(--azul-eletrico); font-weight:bold;">2ª Quinzena</span></td>
+                        <td><strong>Cartão</strong></td>
+                        <td>9</td>
+                        <td>-</td>
+                        <td>R$ 2.00</td>
+                        <td><span style="color: var(--alerta); font-weight:bold;">20/07</span></td>
+                        <td><span style="color: var(--sucesso); font-weight:bold;">25/07</span></td>
+                        <td>R$ 18.00</td>
+                        <td style="text-align: center; min-width: 140px;">
+                            <button class="btn-tabela edit" onclick="iniciarEdicao(2)" data-manus_clickable="true" data-manus_click_id="14">Editar</button>
+                            <button class="btn-tabela del" onclick="apagarRegistro(2)" data-manus_clickable="true" data-manus_click_id="15">Apagar</button>
+                        </td>
+                    </tr>
+                
+                    <tr>
+                        <td>08/07/2026</td>
+                        <td><span style="color: var(--azul-eletrico); font-weight:bold;">2ª Quinzena</span></td>
+                        <td><strong>Shopee</strong></td>
+                        <td>18</td>
+                        <td>1</td>
+                        <td>R$ 6.00</td>
+                        <td><span style="color: var(--alerta); font-weight:bold;">20/07</span></td>
+                        <td><span style="color: var(--sucesso); font-weight:bold;">25/07</span></td>
+                        <td>R$ 108.00</td>
+                        <td style="text-align: center; min-width: 140px;">
+                            <button class="btn-tabela edit" onclick="iniciarEdicao(1)" data-manus_clickable="true" data-manus_click_id="16">Editar</button>
+                            <button class="btn-tabela del" onclick="apagarRegistro(1)" data-manus_clickable="true" data-manus_click_id="17">Apagar</button>
+                        </td>
+                    </tr>
+                
+                    <tr>
+                        <td>02/07/2026</td>
+                        <td><span style="color: var(--azul-eletrico); font-weight:bold;">1ª Quinzena</span></td>
+                        <td><strong>TikTok Shop</strong></td>
+                        <td>22</td>
+                        <td>3</td>
+                        <td>R$ 5.50</td>
+                        <td><span style="color: var(--alerta); font-weight:bold;">05/07</span></td>
+                        <td><span style="color: var(--sucesso); font-weight:bold;">10/07</span></td>
+                        <td>R$ 121.00</td>
+                        <td style="text-align: center; min-width: 140px;">
+                            <button class="btn-tabela edit" onclick="iniciarEdicao(0)" data-manus_clickable="true" data-manus_click_id="18">Editar</button>
+                            <button class="btn-tabela del" onclick="apagarRegistro(0)" data-manus_clickable="true" data-manus_click_id="19">Apagar</button>
+                        </td>
+                    </tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Mantém e recupera os dados gravados no navegador
+        let registrospdv = JSON.parse(localStorage.getItem('db_logistica_financeiro')) || [
+            { data: "2026-07-02", tipo: "amazon", sucesso: 22, insucesso: 3, preco: 5.50, valor: 121.00 },
+            { data: "2026-07-08", tipo: "total_express", sucesso: 18, insucesso: 1, preco: 6.00, valor: 108.00 },
+            { data: "2026-07-12", tipo: "cartao", sucesso: 9, insucesso: 0, preco: 2.00, valor: 18.00 },
+            { data: "2026-07-22", tipo: "amazon", sucesso: 35, insucesso: 5, preco: 5.50, valor: 192.50 }
+        ];
+
+        let chartQuinzenalInstance = null;
+        let chartNCsInstance = null;
+
+        document.getElementById('data-operacao').value = new Date().toISOString().split('T')[0];
+
+        window.onload = function() {
+            processarEAtualizarDashboard();
+        };
+
+        function calcularRegraQuinzena(dataStr) {
+            let partes = dataStr.split('-');
+            let ano = parseInt(partes[0]);
+            let mes = parseInt(partes[1]);
+            let dia = parseInt(partes[2]);
+
+            // Se for do dia 06 ao dia 20: 2ª Quinzena
+            if (dia >= 6 && dia <= 20) {
+                return {
+                    num: '2',
+                    label: '2ª Quinzena',
+                    fechamento: `20/${String(mes).padStart(2, '0')}`,
+                    pagamento: `25/${String(mes).padStart(2, '0')}`
+                };
+            } 
+            // Se for do dia 21 em diante ou até o dia 05: 1ª Quinzena
+            else {
+                let mesFechamento = dia >= 21 ? (mes % 12) + 1 : mes;
+                return {
+                    num: '1',
+                    label: '1ª Quinzena',
+                    fechamento: `05/${String(mesFechamento).padStart(2, '0')}`,
+                    pagamento: `10/${String(mesFechamento).padStart(2, '0')}`
+                };
+            }
+        }
+
+        function alternarCamposForm(tipo) {
+            if (tipo === 'cartao') {
+                document.getElementById('label-quantidade').innerText = "Qtd Transações";
+                document.getElementById('grupo-insucesso').style.display = 'none';
+            } else {
+                document.getElementById('label-quantidade').innerText = "Qtd Entregues (Sucesso)";
+                document.getElementById('grupo-insucesso').style.display = 'flex';
+            }
+        }
+
+        function lancarDados() {
+            const data = document.getElementById('data-operacao').value;
+            const tipo = document.getElementById('tipo-registro').value;
+            const sucesso = parseInt(document.getElementById('qtd-sucesso').value || 0);
+            const insucesso = parseInt(document.getElementById('qtd-insucesso').value || 0);
+            const preco = parseFloat(document.getElementById('preco-entrega').value || 0);
+            const editIndex = parseInt(document.getElementById('edit-index').value);
+
+            if (!data) return alert("Selecione uma data válida!");
+
+            let valorCalculado = sucesso * preco;
+
+            let objetoDados = {
+                data: data,
+                tipo: tipo,
+                sucesso: sucesso,
+                insucesso: (tipo === 'cartao') ? 0 : insucesso,
+                preco: preco,
+                valor: valorCalculado
+            };
+
+            if (editIndex > -1) {
+                registrospdv[editIndex] = objetoDados;
+                document.getElementById('edit-index').value = "-1";
+                document.getElementById('btn-salvar').innerText = "Salvar Registro";
+            } else {
+                registrospdv.push(objetoDados);
+            }
+
+            localStorage.setItem('db_logistica_financeiro', JSON.stringify(registrospdv));
+            processarEAtualizarDashboard();
+
+            document.getElementById('qtd-sucesso').value = 0;
+            document.getElementById('qtd-insucesso').value = 0;
+        }
+
+        function iniciarEdicao(indexOriginal) {
+            const r = registrospdv[indexOriginal];
+            document.getElementById('data-operacao').value = r.data;
+            document.getElementById('tipo-registro').value = r.tipo;
+            alternarCamposForm(r.tipo);
+            
+            document.getElementById('qtd-sucesso').value = r.sucesso;
+            document.getElementById('qtd-insucesso').value = r.insucesso;
+            document.getElementById('preco-entrega').value = r.preco;
+            
+            document.getElementById('edit-index').value = indexOriginal;
+            document.getElementById('btn-salvar').innerText = "Atualizar Lançamento";
+            
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function apagarRegistro(indexOriginal) {
+            if(confirm("Deseja realmente apagar este lançamento?")) {
+                registrospdv.splice(indexOriginal, 1);
+                localStorage.setItem('db_logistica_financeiro', JSON.stringify(registrospdv));
+                processarEAtualizarDashboard();
+            }
+        }
+
+        function processarEAtualizarDashboard() {
+            let totalTikTok Shop = 0;
+            let totalTotalExpress = 0;
+            let totalInsucessosTikTok Shop = 0;
+            let totalInsucessosTotal = 0;
+            let faturamentoLogistica = 0;
+            let movimentacaoCartao = 0;
+
+            // Dados consolidados para os gráficos de quinzenas
+            let q1Stats = { amazon: 0, total: 0, cartao: 0, insucesso: 0 };
+            let q2Stats = { amazon: 0, total: 0, cartao: 0, insucesso: 0 };
+            
+            const metaInput = parseInt(document.getElementById('meta-quinzenal').value || 150);
+            const quinzenaFiltro = document.getElementById('filtro-quinzena-select').value;
+
+            let tabelaCorpo = document.getElementById('corpo-tabela-historico');
+            tabelaCorpo.innerHTML = '';
+
+            let registrosMapeados = registrospdv.map((item, index) => ({...item, indexOriginal: index}));
+            let registrosOrdenados = registrosMapeados.sort((a,b) => new Date(b.data) - new Date(a.data));
+
+            registrosOrdenados.forEach(r => {
+                let infoQuinzena = calcularRegraQuinzena(r.data);
+
+                // Acumula totais globais quinzenais
+                if (infoQuinzena.num === '1') {
+                    if (r.tipo === 'amazon') q1Stats.amazon += r.sucesso;
+                    if (r.tipo === 'total_express') q1Stats.total += r.sucesso;
+                    if (r.tipo === 'cartao') q1Stats.cartao += r.valor;
+                    q1Stats.insucesso += r.insucesso;
+                } else {
+                    if (r.tipo === 'amazon') q2Stats.amazon += r.sucesso;
+                    if (r.tipo === 'total_express') q2Stats.total += r.sucesso;
+                    if (r.tipo === 'cartao') q2Stats.cartao += r.valor;
+                    q2Stats.insucesso += r.insucesso;
+                }
+
+                if (quinzenaFiltro !== 'todas' && infoQuinzena.num !== quinzenaFiltro) return;
+
+                if (r.tipo === 'amazon') {
+                    totalTikTok Shop += r.sucesso;
+                    totalInsucessosTikTok Shop += r.insucesso;
+                    faturamentoLogistica += r.valor;
+                } else if (r.tipo === 'total_express') {
+                    totalTotalExpress += r.sucesso;
+                    totalInsucessosTotal += r.insucesso;
+                    faturamentoLogistica += r.valor;
+                } else if (r.tipo === 'cartao') {
+                    movimentacaoCartao += r.valor;
+                }
+
+                let labelTipo = r.tipo === 'amazon' ? 'TikTok Shop' : r.tipo === 'total_express' ? 'Shopee' : 'Cartão';
+                
+                tabelaCorpo.innerHTML += `
+                    <tr>
+                        <td>${formatarDataBr(r.data)}</td>
+                        <td><span style="color: var(--azul-eletrico); font-weight:bold;">${infoQuinzena.label}</span></td>
+                        <td><strong>${labelTipo}</strong></td>
+                        <td>${r.sucesso}</td>
+                        <td>${r.tipo === 'cartao' ? '-' : r.insucesso}</td>
+                        <td>R$ ${r.preco.toFixed(2)}</td>
+                        <td><span style="color: var(--alerta); font-weight:bold;">${infoQuinzena.fechamento}</span></td>
+                        <td><span style="color: var(--sucesso); font-weight:bold;">${infoQuinzena.pagamento}</span></td>
+                        <td>R$ ${r.valor.toFixed(2)}</td>
+                        <td style="text-align: center; min-width: 140px;">
+                            <button class="btn-tabela edit" onclick="iniciarEdicao(${r.indexOriginal})">Editar</button>
+                            <button class="btn-tabela del" onclick="apagarRegistro(${r.indexOriginal})">Apagar</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('txt-meta-amazon').innerText = `${totalTikTok Shop} / ${metaInput}`;
+            document.getElementById('txt-meta-total').innerText = `${totalTotalExpress} / ${metaInput}`;
+            document.getElementById('txt-fat-logistica').innerText = `R$ ${faturamentoLogistica.toFixed(2)}`;
+            document.getElementById('txt-mov-cartao').innerText = `R$ ${movimentacaoCartao.toFixed(2)}`;
+
+            tratarCardMeta('card-meta-amazon', totalTikTok Shop, metaInput);
+            tratarCardMeta('card-meta-total', totalTotalExpress, metaInput);
+
+            renderizarGraficoQuinzenal(q1Stats, q2Stats);
+            renderizarGraficoNCs(totalTikTok Shop, totalTotalExpress, totalInsucessosTikTok Shop, totalInsucessosTotal);
+        }
+
+        function tratarCardMeta(id, atual, meta) {
+            let el = document.getElementById(id);
+            if (atual >= meta) { el.className = "card-metrica meta-atingida"; } else { el.className = "card-metrica meta-atrasada"; }
+        }
+
+        function formatarDataBr(dataStr) {
+            let partes = dataStr.split('-');
+            return `${partes[2]}/${partes[1]}/${partes[0]}`;
+        }
+
+        function renderizarGraficoQuinzenal(q1, q2) {
+            const ctx = document.getElementById('chartQuinzenal').getContext('2d');
+            if (chartQuinzenalInstance) chartQuinzenalInstance.destroy();
+
+            chartQuinzenalInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['1ª Quinzena (21-05)', '2ª Quinzena (06-20)'],
+                    datasets: [
+                        { label: 'TikTok Shop', data: [q1.amazon, q2.amazon], backgroundColor: '#2563eb', borderRadius: 4 },
+                        { label: 'Shopee', data: [q1.total, q2.total], backgroundColor: '#10b981', borderRadius: 4 },
+                        { label: 'Cartões (R$)', data: [q1.cartao, q2.cartao], backgroundColor: '#f59e0b', borderRadius: 4 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#f8fafc', font: { size: 11 } } } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
+                        y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } }
+                    }
+                }
+            });
+        }
+
+        function renderizarGraficoNCs(amazonOk, totalOk, amazonNc, totalNc) {
+            const ctx = document.getElementById('chartNCs').getContext('2d');
+            if (chartNCsInstance) chartNCsInstance.destroy();
+
+            chartNCsInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['TikTok Shop', 'Shopee'],
+                    datasets: [
+                        { label: 'Entregues (Sucesso)', data: [amazonOk, totalOk], backgroundColor: '#10b981', borderRadius: 4 },
+                        { label: 'NCs (Insucesso)', data: [amazonNc, totalNc], backgroundColor: '#ef4444', borderRadius: 4 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#f8fafc', font: { size: 11 } } } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
+                        y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } }
+                    }
+                }
+            });
+        }
+
+        function exportarExcel() {
+            if (registrospdv.length === 0) return alert("Não há registros para exportar!");
+            let wb = XLSX.utils.book_new();
+            let ws = XLSX.utils.json_to_sheet(registrospdv);
+            XLSX.utils.book_append_sheet(wb, ws, "Relatório Quinzenal");
+            XLSX.writeFile(wb, "Relatorio_Quinzenas.xlsx");
+        }
+    </script>
+
+
+
+</body></html>
